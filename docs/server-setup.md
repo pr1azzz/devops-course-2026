@@ -49,3 +49,19 @@
 - **01-clean-install** — после установки Ubuntu Server и обновления.
 - **02-keys-configured** — после настройки ключевой аутентификации.
 - **03-ssh-hardened** — после hardening SSH.
+## 8. Веб-сервер
+- **Устанавливаемый пакет:** `nginx` (версия 1.24.0)
+- **Путь к конфигурации ресурса:** `/etc/nginx/sites-available/devops-site` (симлинк в `/etc/nginx/sites-enabled/devops-site`)
+- **Каталог ресурса:** `/var/www/devops-site`
+- **Владелец каталога:** `devops:devops`
+- **Права на каталог:** `755` (drwxr-xr-x)
+- **Права на файлы:** `644` (-rw-r--r--)
+- **Путь к сертификату:** `/etc/ssl/certs/devops.crt` (владелец `root`, права `644`)
+- **Путь к закрытому ключу:** `/etc/ssl/private/devops.key` (владелец `root`, права `600`)
+- **Команда формирования сертификата:**
+  ```bash
+  sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/devops.key \
+    -out /etc/ssl/certs/devops.crt \
+    -subj "/CN=devops.local" \
+    -addext "subjectAltName=DNS:devops.local"

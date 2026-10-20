@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -uo pipefail
 
 PASS=0; FAIL=0
@@ -40,6 +40,46 @@ check "Межсетевой экран активен" "active" "$(sudo ufw stat
 # источник данных: sudo ufw status verbose | grep Default
 DEFAULT_IN=$(sudo ufw status verbose | grep Default | awk -F'[ ,]+' '{print $2}')
 check "Политика по умолчанию для входящего трафика: deny" "deny" "$DEFAULT_IN"
+
+echo "[4] Веб-сервер"
+
+# a) Синтаксис nginx
+if sudo nginx -t > /dev/null 2>&1; then
+    echo " [OK]  Конфигурация nginx корректна"
+    ((PASS++))
+else
+    echo " [FAIL] Конфигурация nginx некорректна"
+    ((FAIL++))
+fi
+
+# б) Срок действия сертификата (не менее 30 дней)
+CERT_DAYS=30
+if sudo openssl x509 -checkend $((CERT_DAYS * 86400)) -noout -in /etc/ssl/certs/devops.crt > /dev/null 2>&1; then
+    echo " [OK]  Сертификат действителен более $CERT_DAYS дней"
+    ((PASS++))
+else
+    echo " [FAIL] Сертификат истекает менее чем через $CERT_DAYS дней"
+    ((FAIL++))
+fi
+
+# в) Нет файлов с правом записи для всех в каталоге ресурса
+if [[ -z "$(sudo find /var/www/devops-site -perm -o+w 2>/dev/null)" ]]; then
+    echo " [OK]  Нет файлов с правом записи для всех в /var/www/devops-site"
+    ((PASS++))
+else
+    echo " [FAIL] Найдены файлы с правом записи для всех в /var/www/devops-site"
+    ((FAIL++))
+fi
+
+# г) Права ключа 600
+KEY_PERMS=$(sudo stat -c '%a' /etc/ssl/private/devops.key 2>/dev/null || echo "")
+if [[ "$KEY_PERMS" == "600" ]]; then
+    echo " [OK]  Права ключа TLS равны 600"
+    ((PASS++))
+else
+    echo " [FAIL] Права ключа TLS не равны 600 (получено: '$KEY_PERMS')"
+    ((FAIL++))
+fi
 
 echo "[3] Учётные записи"
 awk -F: ' $3>=1000 && $3<65534 {printf " %s (uid=%s)\n",$1,$3}' /etc/passwd
